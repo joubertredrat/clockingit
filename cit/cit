@@ -1,0 +1,152 @@
+#!/bin/bash
+
+#####################################################################################
+#
+# Script to manage ClockingIT 0.99.4 Services
+# Original concept by aaronperkins
+# Author: Joubert "RedRat" <joubert@redrat.com.br>
+# Version: 1.0
+# Description: Simple script to manage the services to run clockingit
+# Instructions: 1 - Create the file in the /etc/init.d/ and paste this code it.
+#                   Example: /etc/init.d/cit0994
+#               2 - Change the line 18 to your cit path.
+#                   Example: /home/cit, var/www/cit, etc.
+#               3 - Run the update-rc.d command to add the service to run level
+#                   Example: update-rc.d -f cit0994 stop 10 0 1 6 . start 90 2 3 4 5 .
+# Observations: This script is successful tested only in ubuntu desktop and
+#               server, in another distribuitions isn't 100% guaranteed
+#
+#####################################################################################
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+. /lib/lsb/init-functions
+
+
+# Change next line to your cit path
+CIT_ROOT_PATH="CHANGE_CIT_PATH"
+PID_FERRET=$(ps -ef | grep ferret_server | awk '{print $2}' | sed '$ d')
+PID_PUSH=$(ps -ef | grep push_server | awk '{print $2}' | sed '$ d')
+PID_MAIL=$(ps -ef | grep mail_sender.rb | awk '{print $2}' | sed '$ d')
+
+case "$1" in
+        'start')
+        log_daemon_msg "Starting ClockingIT 0.99.4"
+        DATE=$(date --rfc-3339=date)
+
+        cd $CIT_ROOT_PATH
+
+        if [ -z $PID_FERRET ]; then
+                set RAILS_ENV=production
+                FERRET_USE_LOCAL_INDEX=1 script/ferret_server start -e production
+                sleep 1
+        else
+                echo "ferret server is already running ($PID_FERRET)."
+        fi
+
+        if [ -z $PID_PUSH ]; then
+                echo "starting push server..."
+                nohup script/push_server > log/push_server-nohup$DATE.out >&1 &
+                sleep 2
+        else
+                echo "push server is already running ($PID_PUSH)."
+        fi
+
+        if [ -z $PID_MAIL ]; then
+                echo "starting mail sender..."
+                nohup ruby lib/daemons/mail_sender.rb > log/mail_sender-nohup$DATE.out >&1 &
+                sleep 2
+        else
+                echo "mail sender is already running ($PID_MAIL)."
+        fi
+
+        sleep 2
+        log_end_msg 0
+;;
+
+'stop')
+        log_daemon_msg "Stopping ClockingIT 0.99.4"
+        cd $CIT_ROOT_PATH
+        FERRET_USE_LOCAL_INDEX=1 script/ferret_server stop -e production
+        if [ -z $PID_PUSH ]; then
+                echo "push server is not running."
+        else
+                echo "stoping push server."
+                kill -9 $PID_PUSH
+        fi
+
+        if [ -z $PID_MAIL ]; then
+                echo "mail sender is not running."
+        else
+                echo "stoping mail sender."
+                kill -9 $PID_MAIL
+        fi
+
+        sleep 5
+        log_end_msg 0
+;;
+
+'restart')
+        log_daemon_msg "Restarting ClockingIT 0.99.4"
+        cd $CIT_ROOT_PATH
+        FERRET_USE_LOCAL_INDEX=1 script/ferret_server stop -e production
+        if [ -z $PID_PUSH ]; then
+                echo "push server is not running."
+        else
+                echo "stoping push server."
+                kill -9 $PID_PUSH
+        fi
+
+        if [ -z $PID_MAIL ]; then
+                echo "mail sender is not running."
+        else
+                echo "stoping mail sender."
+                kill -9 $PID_MAIL
+        fi
+
+        set RAILS_ENV=production
+        FERRET_USE_LOCAL_INDEX=1 script/ferret_server start -e production
+        sleep 1
+        echo "starting push server..."
+        nohup script/push_server > log/push_server-nohup$DATE.out >&1 &
+        sleep 2
+        echo "starting mail sender..."
+        nohup ruby lib/daemons/mail_sender.rb > log/mail_sender-nohup$DATE.out >&1 &
+        sleep 2
+
+        log_end_msg 0
+;;
+
+'status')
+        log_daemon_msg "Checking ClockingIT 0.99.4 services"
+        if [ -z $PID_FERRET ]; then
+                echo "ferret server is not running."
+        else
+                echo "ferret server is running ($PID_FERRET)."
+        fi
+        sleep 1
+
+        if [ -z $PID_PUSH ]; then
+                echo "push server is not running."
+        else
+                echo "push server is running ($PID_PUSH)."
+        fi
+        sleep 1
+        if [ -z $PID_MAIL ]; then
+                echo "mail sender is not running."
+        else
+                echo "mail sender is running ($PID_MAIL)."
+        fi
+        log_end_msg 0
+
+;;
+
+'about')
+        log_daemon_msg "knowledge is free, get it and go forward with intelligence"
+;;
+
+*)
+echo "Usage: $0 { start | stop | restart | status | about }"
+;;
+esac
+exit 0
