@@ -1,0 +1,55 @@
+This way was tested only in Ubuntu 12.04 LTS
+
+==============================================================
+
+apt-get update && apt-get upgrade
+
+apt-get install mysql-server mysql-client libmysqlclient-dev
+
+echo "CREATE DATABASE cit DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci; GRANT ALL ON cit.* TO 'cit'@'localhost' IDENTIFIED BY 'cit'; FLUSH PRIVILEGES;" | mysql -u root -p
+
+apt-get install graphicsmagick-libmagick-dev-compat imagemagick ruby1.8 ruby1.8-dev rubygems ri rdoc rake librmagick-ruby
+
+gem install gchartrb RedCloth json tzinfo echoe fastercsv test-spec ferret hoe mongrel eventmachine -r
+gem install ZenTest -v 4.1.4 -r
+gem install icalendar -v 1.1.0 -r
+gem install mysql -v 2.7 -r
+
+wget https://github.com/joubertredrat/clockingit/archive/master.tar.gz
+
+tar -zxvf master.tar.gz
+
+mv clockingit-master/cit /opt/.
+
+cd /opt/cit
+
+ruby setup.rb
+
+chmod 777 /opt/cit -Rf
+
+apt-get install apache2
+
+a2enmod rewrite
+
+echo "<VirtualHost *:80>
+    ServerName subdomain.yourdomain.com
+    DocumentRoot /opt/cit/public/
+    ErrorLog /opt/cit/log/http.log
+
+    <Directory /opt/cit/public/>
+      Options ExecCGI FollowSymLinks
+      AllowOverride all
+      Allow from all
+      Order allow,deny
+    </Directory>
+  </VirtualHost>" > /etc/apache2/sites-available/default
+  
+/etc/init.d/apache2 restart
+
+cp cit /etc/init.d/cit
+
+chmod +x /etc/init.d/cit
+
+sed -i 's/CHANGE_CIT_PATH/\/opt\/cit/g' -i /etc/init.d/cit
+
+/etc/init.d/cit start
